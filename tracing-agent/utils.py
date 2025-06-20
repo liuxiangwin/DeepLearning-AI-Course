@@ -43,21 +43,45 @@ def get_phoenix_endpoint():
     return phoenix_endpoint
 
 
+# def set_agent_trace_project(self,trace_project_name):
+#     self.PROJECT_NAME = trace_project_name
 
-PROJECT_NAME = "evaluating-agent-path"
+#####################################################################
+# Add Phoenix API Key for tracing
+#####################################################################
+PHOENIX_API_KEY = "14c8b53e25e5720076a:6840e31"
+PHOENIX_ENDPOINT = "https://app.phoenix.arize.com/v1/traces"
+
+os.environ["PHOENIX_CLIENT_HEADERS"] = f"api_key={PHOENIX_API_KEY}"
+
 tracer_provider = register(
-    project_name=PROJECT_NAME,
-    endpoint = get_phoenix_endpoint() + "v1/traces"
+    project_name=os.getenv("TRACING_PROJECT_NAME"),
+    # endpoint= get_phoenix_endpoint() + "v1/traces"
+    endpoint= PHOENIX_ENDPOINT
 )
 
 OpenAIInstrumentor().instrument(tracer_provider = tracer_provider)
 tracer = tracer_provider.get_tracer(__name__)
 
-# initialize the OpenAI client
-openai_api_key = get_openai_api_key()
 
-client = OpenAI(api_key=openai_api_key)
-MODEL = "gpt-4o-mini"
+INFERENCE_SERVER_URL = "http://localhost:8989"
+# MODEL = "Qwen/Qwen3-14B"
+# MODEL ="mistralai/Mistral-7B-Instruct-v0.3"
+# MODEL_NAME = "NousResearch/Meta-Llama-3-8B-Instruct"
+MODEL="ibm-granite/granite-3.3-2b-instruct"
+API_KEY= "alanliuxiang"
+
+from openai import OpenAI
+client = OpenAI(
+    base_url= f"{INFERENCE_SERVER_URL}/v1",
+    api_key=API_KEY,
+)
+
+# initialize the OpenAI client
+# openai_api_key = get_openai_api_key()
+
+# client = OpenAI(api_key=openai_api_key)
+# MODEL = "gpt-4o-mini"
 
 
 
@@ -74,6 +98,10 @@ The prompt is: {prompt}
 The available columns are: {columns}
 The table name is: {table_name}
 """
+
+def update_sql_gen_prompt(new_prompt):
+    SQL_GENERATION_PROMPT = new_prompt
+
 
 # code for step 2 of tool 1
 def generate_sql_query(prompt: str, columns: list, table_name: str) -> str:
@@ -119,6 +147,13 @@ def lookup_sales_data(prompt: str) -> str:
     except Exception as e:
         return f"Error accessing data: {str(e)}"
 
+def get_sql_gen_prompt():
+    table_name = "sales"
+    df = pd.read_parquet(TRANSACTION_DATA_FILE_PATH)
+    columns = df.columns
+
+    return(SQL_GENERATION_PROMPT.format(prompt="question", columns=columns, table_name=table_name))
+    
 
 # ### Tool 2: Data Analysis
 
@@ -356,10 +391,36 @@ def run_agent(messages):
 
 
 
+### Creating the Main Span
+
+def start_main_span(messages):
+    print("Starting main span with messages:", messages)
+    
+    with tracer.start_as_current_span("AgentRun", openinference_span_kind="agent") as span:
+        span.set_input(value=messages)
+        ret = run_agent(messages)
+        #print("Main span completed with return value:", ret)
+        span.set_output(value=ret)
+        span.set_status(StatusCode.OK)
+        return ret
 
 
 
+def process_messages(messages):
+    tool_calls = []
+    tool_responses = []
+    final_output = None
 
+    for i, message in enumerate(messages):
+        # Extract tool calls
+        if 'tool_calls' in message and message['tool_calls']:
+            for tool_call in message['tool_calls']:
+                tool_name = tool_call['function']['name']
+                tool_input = tool_call['function']['arguments']
+                tool_calls.append(tool_name)
+
+                # Prepare tool response structure with tool name and input
+                tool_respo
 
 
 
