@@ -14,8 +14,6 @@ API_KEY= "alanliuxiang"
 nest_asyncio.apply()
 load_dotenv()
 
-
-
 anthropic = OpenAI(
     api_key=API_KEY,  # 您的 Anthropic API 密钥
     base_url=f"{INFERENCE_SERVER_URL}/v1"  # Anthropic 的 API 端点
@@ -40,7 +38,7 @@ class MCP_ChatBot:
         #                               model = 'claude-3-7-sonnet-20250219', 
         #                               tools = self.available_tools, # tools exposed to the LLM
         #                               messages = messages)
-        response = client.chat.completions.create(
+        response = self.anthropic.chat.completions.create(
                                     model=MODEL_NAME, # Anthropic 模型名称
                                     tools = self.available_tools, # tools exposed to the LLM
                                     messages =messages)
@@ -80,7 +78,7 @@ class MCP_ChatBot:
                     #                   tools = self.available_tools,
                     #                   messages = messages) 
                    
-                    response = client.chat.completions.create(
+                    response = self.anthropic.chat.completions.create(
                             model=MODEL_NAME, # Anthropic 模型名称
                             tools = self.available_tools, # tools exposed to the LLM
                             messages =messages)
